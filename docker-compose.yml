@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: library_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres_admin_2024
+      POSTGRES_PASSWORD: postgres_admin_2026
     ports:
       - "5433:5432"
     volumes:
