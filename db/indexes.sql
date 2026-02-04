@@ -7,7 +7,7 @@ COMMENT ON INDEX idx_loans_member_returned IS
 
 CREATE INDEX idx_loans_overdue 
 ON loans(due_at, member_id, copy_id) 
-WHERE returned_at IS NULL AND due_at < CURRENT_DATE;
+WHERE returned_at IS NULL;
 
 COMMENT ON INDEX idx_loans_overdue IS 
 'Índice parcial para préstamos vencidos no devueltos';
