@@ -12,35 +12,6 @@ Sistema de gestión y análisis de biblioteca desarrollado con Next.js, TypeScri
 
 ---
 
-## 📊 Reportes Disponibles
-
-### 1. Libros más prestados
-- Ranking de popularidad con Window Functions 
-- Muestra libros actualmente prestados vs completados
-
-### 2. Préstamos vencidos
-- Lista de libros no devueltos a tiempo
-- Calcula días de atraso y multa sugerida con 
-- Usa CTE para cálculos complejos
-
-### 3. Resumen de multas
-- Análisis mensual de multas pagadas vs pendientes
-- Agrupa con `DATE_TRUNC` y `GROUP BY`
-- Calcula tasa de pago con porcentajes
-- **VIEW:** `vw_fines_summary`
-
-### 4. Actividad de socios
-- Estadísticas de préstamos por usuario
-- Categorización con `CASE` (Excelente, Bueno, Regular)
-- Usa `COALESCE` para valores nulos
-- **VIEW:** `vw_member_activity`
-
-### 5. Salud del inventario
-- Estado de disponibilidad por categoría
-- Porcentajes de libros disponibles, prestados, dañados y perdidos
-- Indicadores de salud con `CASE`
-- **VIEW:** `vw_inventory_health`
-
 ## 🗄️ Estructura de la Base de Datos
 
 ### Tablas (5)
