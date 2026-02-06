@@ -1,0 +1,5 @@
+FROM postgres:16-alpine
+
+# Copiar script personalizado que pasa variables de entorno a psql
+COPY docker-postgres-init.sh /docker-entrypoint-initdb.d/99_init_with_env.sh
+RUN chmod +x /docker-entrypoint-initdb.d/99_init_with_env.sh
