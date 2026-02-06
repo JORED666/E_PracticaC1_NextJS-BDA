@@ -1,4 +1,3 @@
-# 📚 Sistema de Biblioteca - Dashboard de Reportes
 
 Sistema de gestión y análisis de biblioteca desarrollado con Next.js, TypeScript y PostgreSQL. Implementa un dashboard interactivo con 5 reportes principales basados en vistas SQL optimizadas.
 
@@ -22,12 +21,6 @@ copies       -- Copias físicas de cada libro
 loans        -- Registro de préstamos
 fines        -- Multas por atrasos
 ```
-
-### Relaciones
-- `copies` → `books` (FK: book_id)
-- `loans` → `copies` (FK: copy_id)
-- `loans` → `members` (FK: member_id)
-- `fines` → `loans` (FK: loan_id)
 
 ---
 
@@ -83,31 +76,32 @@ docker compose down -v
 ## 📁 Estructura del Proyecto
 ```
 libreria-dashboard/
-├── db/                          # Scripts SQL
-│   ├── schema.sql              # Definición de tablas (5 tablas)
+├── db/                          # scrips SQL
+│   ├── schema.sql              # 5 tablas
 │   ├── seed.sql                # Datos de prueba
 │   ├── reports_vw.sql          # 5 VIEWS obligatorias
 │   ├── indexes.sql             # 3 índices optimizados
-│   └── roles.sql               # Usuario app_user con permisos
+│   └── roles.sql               # app_user con permisos
 ├── src/
 │   ├── app/                    # Rutas de Next.js (App Router)
 │   │   ├── page.tsx           # Dashboard principal
 │   │   ├── layout.tsx         # Layout global
 │   │   ├── globals.css        # Estilos Tailwind
 │   │   └── reports/           # 5 páginas de reportes
-│   │       ├── most-borrowed/page.tsx
-│   │       ├── overdue-loans/page.tsx
-│   │       ├── fines-summary/page.tsx
-│   │       ├── member-activity/page.tsx
-│   │       └── inventory-health/page.tsx
 │   ├── lib/
-│   │   └── db.ts              # Conexión PostgreSQL (pool)
+│   │   └── db.ts              # conexión con Postgres
 │   └── types/
-│       └── index.ts           # Tipos TypeScript
+│       └── index.ts
 ├── public/                     # Archivos estáticos
-├── docker-compose.yml          # Orquestación (Postgres + Next.js)
-├── Dockerfile                  # Imagen de Next.js
+├── .env.example               # Template de variables de entorno
+├── .gitignore                 # Archivos ignorados
+├── docker-compose.yml          # orquestación de Postgres y Next.js
+├── Dockerfile                  # imagen de Next.js
+├── Dockerfile.postgres         # Imagen personalizada de PostgreSQL
+├── docker-postgres-init.sh     # Script de inicialización con variables
 ├── package.json               # Dependencias
-├── tsconfig.json              # Configuración TypeScript
-└── README.md                  # Documentación
+├── tsconfig.json              
+└── README.md                  
 ```
+
+
