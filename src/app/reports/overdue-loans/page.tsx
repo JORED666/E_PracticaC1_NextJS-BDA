@@ -1,66 +1,11 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { query } from '@/lib/db';
-import { OverdueLoan, SearchParams, PaginatedResult } from '@/types';
+import { getOverdueLoans } from '@/lib/reports';
 import { SearchInput } from '@/components/SearchInput';
 import { MinDaysFilter } from '@/components/MinDaysFilter';
 import { Pagination } from '@/components/Pagination';
 
-const PAGE_SIZE = 10;
-
-async function getOverdueLoans(params: SearchParams): Promise<PaginatedResult<OverdueLoan>> {
-  const page = Math.max(1, parseInt(params.page?.toString() || '1'));
-  const search = params.search?.toString().trim() || '';
-  const minDays = params.minDays ? parseInt(params.minDays.toString()) : null;
-  const offset = (page - 1) * PAGE_SIZE;
-
-  let whereClause = ''; 
-  const queryParams: (string | number)[] = [];
-  let paramCount = 1;
-
-  if (search) {
-    whereClause += ` LOWER(member_name) LIKE LOWER($${paramCount}) OR LOWER(book_title) LIKE LOWER($${paramCount}) OR barcode = $${paramCount}`;
-    queryParams.push(`%${search}%`);
-    paramCount++;
-  }
-
-  if (minDays !== null && minDays >= 0) {
-    whereClause += (whereClause ? ' AND ' : '') + `days_overdue >= $${paramCount}`;
-    queryParams.push(minDays);
-    paramCount++;
-  }
-
-  const wherePrefix = whereClause ? ' WHERE ' : '';
-  const countQuery = `SELECT COUNT(*) FROM vw_overdue_loans${wherePrefix}${whereClause}`;
-
-  try {
-    const countResult = await query(countQuery, queryParams);
-    const total = parseInt(countResult.rows[0].count) || 0;
-    const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
-
-    const dataQuery = `SELECT * FROM vw_overdue_loans${wherePrefix}${whereClause} ORDER BY days_overdue DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-    queryParams.push(PAGE_SIZE, offset);
-    
-    const result = await query(dataQuery, queryParams);
-
-    return {
-      data: result.rows,
-      total,
-      page,
-      pageSize: PAGE_SIZE,
-      totalPages,
-    };
-  } catch (err) {
-    console.error('Database error:', err);
-    return {
-      data: [],
-      total: 0,
-      page,
-      pageSize: PAGE_SIZE,
-      totalPages: 1,
-    };
-  }
-}
+// Data fetching is handled by `getOverdueLoans` in `src/lib/reports.ts`.
 
 interface Props {
   searchParams: Promise<SearchParams>;

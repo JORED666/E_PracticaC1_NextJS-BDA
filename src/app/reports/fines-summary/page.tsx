@@ -1,63 +1,10 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { query } from '@/lib/db';
-import { FinesSummary, SearchParams, PaginatedResult } from '@/types';
+import { getFinesSummary } from '@/lib/reports';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
 import { Pagination } from '@/components/Pagination';
 
-const PAGE_SIZE = 10;
-
-async function getFinesSummary(params: SearchParams): Promise<PaginatedResult<FinesSummary>> {
-  const page = Math.max(1, parseInt(params.page?.toString() || '1'));
-  const fromDate = params.fromDate?.toString() || '';
-  const toDate = params.toDate?.toString() || '';
-  const offset = (page - 1) * PAGE_SIZE;
-
-  let whereClause = '';
-  const queryParams: (string | number)[] = [];
-
-  if (fromDate) {
-    whereClause += `month >= $1`;
-    queryParams.push(`${fromDate}-01`);
-  }
-
-  if (toDate) {
-    const nextMonth = new Date(toDate + '-01');
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    const nextMonthStr = nextMonth.toISOString().split('T')[0];
-    whereClause += (whereClause ? ' AND ' : '') + `month < $${queryParams.length + 1}`;
-    queryParams.push(nextMonthStr);
-  }
-
-  try {
-    const countQuery = `SELECT COUNT(*) as count FROM vw_fines_summary ${whereClause ? 'WHERE ' + whereClause : ''}`;
-    const countResult = await query(countQuery, queryParams);
-    const total = parseInt(countResult.rows[0].count) || 0;
-    const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
-
-    const dataQuery = `SELECT * FROM vw_fines_summary ${whereClause ? 'WHERE ' + whereClause : ''} ORDER BY month DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
-    queryParams.push(PAGE_SIZE, offset);
-    
-    const result = await query(dataQuery, queryParams);
-
-    return {
-      data: result.rows,
-      total,
-      page,
-      pageSize: PAGE_SIZE,
-      totalPages,
-    };
-  } catch (err) {
-    console.error('Database error:', err);
-    return {
-      data: [],
-      total: 0,
-      page,
-      pageSize: PAGE_SIZE,
-      totalPages: 1,
-    };
-  }
-}
+// Data fetching is handled in `src/lib/reports.ts` via `getFinesSummary`.
 
 interface Props {
   searchParams: Promise<SearchParams>;

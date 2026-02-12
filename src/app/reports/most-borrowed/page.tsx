@@ -1,53 +1,10 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { query } from '@/lib/db';
-import { MostBorrowedBook, SearchParams, PaginatedResult } from '@/types';
+import { getMostBorrowedBooks } from '@/lib/reports';
 import { SearchInput } from '@/components/SearchInput';
 import { Pagination } from '@/components/Pagination';
 
-const PAGE_SIZE = 10;
-
-async function getMostBorrowedBooks(params: SearchParams): Promise<PaginatedResult<MostBorrowedBook>> {
-  const page = Math.max(1, parseInt(params.page?.toString() || '1'));
-  const search = params.search?.toString().trim() || '';
-  const offset = (page - 1) * PAGE_SIZE;
-
-  let whereClause = ''; 
-  let countQuery = 'SELECT COUNT(*) FROM vw_most_borrowed_books';
-
-  if (search) {
-    whereClause = ` WHERE LOWER(title) LIKE LOWER($1) OR LOWER(author) LIKE LOWER($1)`;
-    countQuery += whereClause;
-  }
-
-  try {
-    const countResult = await query(countQuery, search ? [`%${search}%`] : []);
-    const total = parseInt(countResult.rows[0].count) || 0;
-    const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
-
-    const dataQuery = `SELECT * FROM vw_most_borrowed_books${whereClause} ORDER BY popularity_rank LIMIT $${search ? 2 : 1} OFFSET $${search ? 3 : 2}`;
-    const params_array = search ? [`%${search}%`, PAGE_SIZE, offset] : [PAGE_SIZE, offset];
-    
-    const result = await query(dataQuery, params_array);
-
-    return {
-      data: result.rows,
-      total,
-      page,
-      pageSize: PAGE_SIZE,
-      totalPages,
-    };
-  } catch (err) {
-    console.error('Database error:', err);
-    return {
-      data: [],
-      total: 0,
-      page,
-      pageSize: PAGE_SIZE,
-      totalPages: 1,
-    };
-  }
-}
+// Data fetching is handled by `getMostBorrowedBooks` in `src/lib/reports.ts`.
 
 interface Props {
   searchParams: Promise<SearchParams>;
