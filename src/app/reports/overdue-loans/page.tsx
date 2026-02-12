@@ -1,19 +1,76 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { query } from '@/lib/db';
-import { OverdueLoan } from '@/types';
+import { OverdueLoan, SearchParams, PaginatedResult } from '@/types';
+import { SearchInput } from '@/components/SearchInput';
+import { MinDaysFilter } from '@/components/MinDaysFilter';
+import { Pagination } from '@/components/Pagination';
 
-export default async function OverdueLoansPage() {
-  let loans: OverdueLoan[] = [];
-  let error = null;
+const PAGE_SIZE = 10;
+
+async function getOverdueLoans(params: SearchParams): Promise<PaginatedResult<OverdueLoan>> {
+  const page = Math.max(1, parseInt(params.page?.toString() || '1'));
+  const search = params.search?.toString().trim() || '';
+  const minDays = params.minDays ? parseInt(params.minDays.toString()) : null;
+  const offset = (page - 1) * PAGE_SIZE;
+
+  let whereClause = ''; 
+  const queryParams: (string | number)[] = [];
+  let paramCount = 1;
+
+  if (search) {
+    whereClause += ` LOWER(member_name) LIKE LOWER($${paramCount}) OR LOWER(book_title) LIKE LOWER($${paramCount}) OR barcode = $${paramCount}`;
+    queryParams.push(`%${search}%`);
+    paramCount++;
+  }
+
+  if (minDays !== null && minDays >= 0) {
+    whereClause += (whereClause ? ' AND ' : '') + `days_overdue >= $${paramCount}`;
+    queryParams.push(minDays);
+    paramCount++;
+  }
+
+  const wherePrefix = whereClause ? ' WHERE ' : '';
+  const countQuery = `SELECT COUNT(*) FROM vw_overdue_loans${wherePrefix}${whereClause}`;
 
   try {
-    const result = await query('SELECT * FROM vw_overdue_loans');
-    loans = result.rows;
+    const countResult = await query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0].count) || 0;
+    const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+
+    const dataQuery = `SELECT * FROM vw_overdue_loans${wherePrefix}${whereClause} ORDER BY days_overdue DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    queryParams.push(PAGE_SIZE, offset);
+    
+    const result = await query(dataQuery, queryParams);
+
+    return {
+      data: result.rows,
+      total,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages,
+    };
   } catch (err) {
-    error = 'Error al cargar los datos';
-    console.error(err);
+    console.error('Database error:', err);
+    return {
+      data: [],
+      total: 0,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages: 1,
+    };
   }
+}
+
+interface Props {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function OverdueLoansPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const result = await getOverdueLoans(params);
+  const { data: loans, total, page, totalPages } = result;
+  const error = total === -1 ? 'Error al cargar datos' : null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -32,10 +89,23 @@ export default async function OverdueLoansPage() {
           </p>
         </div>
 
+        {/* Search */}
+        <SearchInput placeholder="Buscar por socio, libro o código..." paramName="search" />
+
+        {/* Filters */}
+        <MinDaysFilter />
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}
           </div>
+        )}
+
+        {/* Results Info */}
+        {!error && total > 0 && (
+          <p className="text-sm text-gray-600 mb-4">
+            Se encontraron <span className="font-semibold">{total}</span> préstamo(s) vencido(s)
+          </p>
         )}
 
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -96,6 +166,9 @@ export default async function OverdueLoansPage() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && <Pagination currentPage={page} totalPages={totalPages} />}
       </div>
     </div>
   );

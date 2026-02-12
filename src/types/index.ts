@@ -1,4 +1,3 @@
-// Tipos para las tablas
 export interface Member {
   id: number;
   name: string;
@@ -17,7 +16,6 @@ export interface Book {
   publication_year: number;
 }
 
-// Tipos para las VIEWS
 export interface MostBorrowedBook {
   book_id: number;
   title: string;
@@ -83,4 +81,22 @@ export interface InventoryHealth {
   lost_copies: number;
   availability_percentage: number;
   health_status: string;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface SearchParams {
+  search?: string;
+  page?: string | number;
+  minDays?: string | number;
+  fromDate?: string;
+  toDate?: string;
+  category?: string;
+  [key: string]: string | number | undefined;
 }

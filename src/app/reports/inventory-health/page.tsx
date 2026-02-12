@@ -1,19 +1,75 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { query } from '@/lib/db';
-import { InventoryHealth } from '@/types';
+import { InventoryHealth, SearchParams, PaginatedResult } from '@/types';
+import { CategoryFilter } from '@/components/CategoryFilter';
+import { Pagination } from '@/components/Pagination';
 
-export default async function InventoryHealthPage() {
-  let inventory: InventoryHealth[] = [];
-  let error = null;
+const PAGE_SIZE = 5;
+
+async function getInventoryHealth(params: SearchParams): Promise<PaginatedResult<InventoryHealth> & { categories: string[] }> {
+  const page = Math.max(1, parseInt(params.page?.toString() || '1'));
+  const category = params.category?.toString().trim() || '';
+  const offset = (page - 1) * PAGE_SIZE;
+
+  // Get all categories from the view
+  let categoriesResult: string[] = [];
+  try {
+    const catQuery = 'SELECT DISTINCT category FROM vw_inventory_health ORDER BY category';
+    const catRes = await query(catQuery, []);
+    categoriesResult = catRes.rows.map((r: { category: string }) => r.category);
+  } catch (err) {
+    console.error('Error fetching categories:', err);
+  }
+
+  let whereClause = '';
+  let countQuery = 'SELECT COUNT(DISTINCT category) FROM vw_inventory_health';
+
+  if (category) {
+    whereClause = ` WHERE category = $1`;
+    countQuery += whereClause;
+  }
 
   try {
-    const result = await query('SELECT * FROM vw_inventory_health');
-    inventory = result.rows;
+    const countResult = await query(countQuery, category ? [category] : []);
+    const total = parseInt(countResult.rows[0].count) || 0;
+    const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+
+    const dataQuery = `SELECT * FROM vw_inventory_health${whereClause} ORDER BY unique_books DESC LIMIT $${category ? 2 : 1} OFFSET $${category ? 3 : 2}`;
+    const params_array = category ? [category, PAGE_SIZE, offset] : [PAGE_SIZE, offset];
+    
+    const result = await query(dataQuery, params_array);
+
+    return {
+      data: result.rows,
+      total,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages,
+      categories: categoriesResult,
+    };
   } catch (err) {
-    error = 'Error al cargar los datos';
-    console.error(err);
+    console.error('Database error:', err);
+    return {
+      data: [],
+      total: 0,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages: 1,
+      categories: categoriesResult,
+    };
   }
+}
+
+interface Props {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function InventoryHealthPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const result = await getInventoryHealth(params);
+  const { data: inventory, total, page, totalPages, categories } = result;
+  const error = total === -1 ? 'Error al cargar datos' : null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -31,6 +87,9 @@ export default async function InventoryHealthPage() {
             Estado de disponibilidad por categoría
           </p>
         </div>
+
+        {/* Category Filter */}
+        <CategoryFilter categories={categories} />
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -120,11 +179,21 @@ export default async function InventoryHealthPage() {
           ))}
         </div>
 
+        {/* Results Info */}
+        {!error && total > 0 && (
+          <p className="text-sm text-gray-600 mb-4 mt-6">
+            Se encontraron <span className="font-semibold">{total}</span> categoría(s)
+          </p>
+        )}
+
         {inventory.length === 0 && !error && (
           <div className="bg-white shadow-md rounded-lg p-8 text-center text-gray-500">
             No hay datos de inventario
           </div>
         )}
+
+        {/* Pagination */}
+        {totalPages > 1 && <Pagination currentPage={page} totalPages={totalPages} />}
       </div>
     </div>
   );

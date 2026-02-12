@@ -1,19 +1,73 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { query } from '@/lib/db';
-import { FinesSummary } from '@/types';
+import { FinesSummary, SearchParams, PaginatedResult } from '@/types';
+import { DateRangeFilter } from '@/components/DateRangeFilter';
+import { Pagination } from '@/components/Pagination';
 
-export default async function FinesSummaryPage() {
-  let fines: FinesSummary[] = [];
-  let error = null;
+const PAGE_SIZE = 10;
+
+async function getFinesSummary(params: SearchParams): Promise<PaginatedResult<FinesSummary>> {
+  const page = Math.max(1, parseInt(params.page?.toString() || '1'));
+  const fromDate = params.fromDate?.toString() || '';
+  const toDate = params.toDate?.toString() || '';
+  const offset = (page - 1) * PAGE_SIZE;
+
+  let whereClause = '';
+  const queryParams: (string | number)[] = [];
+
+  if (fromDate) {
+    whereClause += `month >= $1`;
+    queryParams.push(`${fromDate}-01`);
+  }
+
+  if (toDate) {
+    const nextMonth = new Date(toDate + '-01');
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const nextMonthStr = nextMonth.toISOString().split('T')[0];
+    whereClause += (whereClause ? ' AND ' : '') + `month < $${queryParams.length + 1}`;
+    queryParams.push(nextMonthStr);
+  }
 
   try {
-    const result = await query('SELECT * FROM vw_fines_summary');
-    fines = result.rows;
+    const countQuery = `SELECT COUNT(*) as count FROM vw_fines_summary ${whereClause ? 'WHERE ' + whereClause : ''}`;
+    const countResult = await query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0].count) || 0;
+    const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+
+    const dataQuery = `SELECT * FROM vw_fines_summary ${whereClause ? 'WHERE ' + whereClause : ''} ORDER BY month DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    queryParams.push(PAGE_SIZE, offset);
+    
+    const result = await query(dataQuery, queryParams);
+
+    return {
+      data: result.rows,
+      total,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages,
+    };
   } catch (err) {
-    error = 'Error al cargar los datos';
-    console.error(err);
+    console.error('Database error:', err);
+    return {
+      data: [],
+      total: 0,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages: 1,
+    };
   }
+}
+
+interface Props {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function FinesSummaryPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const result = await getFinesSummary(params);
+  const { data: fines, total, page, totalPages } = result;
+  const error = total === -1 ? 'Error al cargar datos' : null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -32,10 +86,20 @@ export default async function FinesSummaryPage() {
           </p>
         </div>
 
+        {/* Date Range Filter */}
+        <DateRangeFilter />
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}
           </div>
+        )}
+
+        {/* Results Info */}
+        {!error && total > 0 && (
+          <p className="text-sm text-gray-600 mb-4">
+            Se encontraron <span className="font-semibold">{total}</span> mes(es) con multas
+          </p>
         )}
 
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -100,6 +164,9 @@ export default async function FinesSummaryPage() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && <Pagination currentPage={page} totalPages={totalPages} />}
       </div>
     </div>
   );

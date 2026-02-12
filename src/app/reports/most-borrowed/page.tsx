@@ -1,19 +1,63 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { query } from '@/lib/db';
-import { MostBorrowedBook } from '@/types';
+import { MostBorrowedBook, SearchParams, PaginatedResult } from '@/types';
+import { SearchInput } from '@/components/SearchInput';
+import { Pagination } from '@/components/Pagination';
 
-export default async function MostBorrowedPage() {
-  let books: MostBorrowedBook[] = [];
-  let error = null;
+const PAGE_SIZE = 10;
+
+async function getMostBorrowedBooks(params: SearchParams): Promise<PaginatedResult<MostBorrowedBook>> {
+  const page = Math.max(1, parseInt(params.page?.toString() || '1'));
+  const search = params.search?.toString().trim() || '';
+  const offset = (page - 1) * PAGE_SIZE;
+
+  let whereClause = ''; 
+  let countQuery = 'SELECT COUNT(*) FROM vw_most_borrowed_books';
+
+  if (search) {
+    whereClause = ` WHERE LOWER(title) LIKE LOWER($1) OR LOWER(author) LIKE LOWER($1)`;
+    countQuery += whereClause;
+  }
 
   try {
-    const result = await query('SELECT * FROM vw_most_borrowed_books LIMIT 20');
-    books = result.rows;
+    const countResult = await query(countQuery, search ? [`%${search}%`] : []);
+    const total = parseInt(countResult.rows[0].count) || 0;
+    const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+
+    const dataQuery = `SELECT * FROM vw_most_borrowed_books${whereClause} ORDER BY popularity_rank LIMIT $${search ? 2 : 1} OFFSET $${search ? 3 : 2}`;
+    const params_array = search ? [`%${search}%`, PAGE_SIZE, offset] : [PAGE_SIZE, offset];
+    
+    const result = await query(dataQuery, params_array);
+
+    return {
+      data: result.rows,
+      total,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages,
+    };
   } catch (err) {
-    error = 'Error al cargar los datos';
-    console.error(err);
+    console.error('Database error:', err);
+    return {
+      data: [],
+      total: 0,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages: 1,
+    };
   }
+}
+
+interface Props {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function MostBorrowedPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const result = await getMostBorrowedBooks(params);
+  const { data: books, total, page, totalPages } = result;
+  const error = total === -1 ? 'Error al cargar datos' : null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -33,11 +77,21 @@ export default async function MostBorrowedPage() {
           </p>
         </div>
 
+        {/* Search */}
+        <SearchInput placeholder="Buscar por título o autor..." paramName="search" />
+
         {/* Error */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}
           </div>
+        )}
+
+        {/* Results Info */}
+        {!error && total > 0 && (
+          <p className="text-sm text-gray-600 mb-4">
+            Se encontraron <span className="font-semibold">{total}</span> libro(s)
+          </p>
         )}
 
         {/* Tabla */}
@@ -103,6 +157,9 @@ export default async function MostBorrowedPage() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && <Pagination currentPage={page} totalPages={totalPages} />}
       </div>
     </div>
   );
