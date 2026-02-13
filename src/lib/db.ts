@@ -17,7 +17,7 @@ pool.on('error', (err: Error) => {
   console.error('❌ Error en PostgreSQL pool:', err);
 });
 
-export async function query(text: string, params?: any[]): Promise<QueryResult> {
+export async function query(text: string, params?: (string | number)[]): Promise<QueryResult> {
   const start = Date.now();
   try {
     const res = await pool.query(text, params);

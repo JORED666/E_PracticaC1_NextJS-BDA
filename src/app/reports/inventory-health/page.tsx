@@ -1,19 +1,20 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { query } from '@/lib/db';
-import { InventoryHealth } from '@/types';
+import { getInventoryHealth } from '@/lib/reports';
+import { CategoryFilter } from '@/components/CategoryFilter';
+import { Pagination } from '@/components/Pagination';
 
-export default async function InventoryHealthPage() {
-  let inventory: InventoryHealth[] = [];
-  let error = null;
+// Data fetching is handled by `getInventoryHealth` in `src/lib/reports.ts`.
 
-  try {
-    const result = await query('SELECT * FROM vw_inventory_health');
-    inventory = result.rows;
-  } catch (err) {
-    error = 'Error al cargar los datos';
-    console.error(err);
-  }
+interface Props {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function InventoryHealthPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const result = await getInventoryHealth(params);
+  const { data: inventory, total, page, totalPages, categories } = result;
+  const error = total === -1 ? 'Error al cargar datos' : null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -31,6 +32,9 @@ export default async function InventoryHealthPage() {
             Estado de disponibilidad por categoría
           </p>
         </div>
+
+        {/* Category Filter */}
+        <CategoryFilter categories={categories} />
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -120,11 +124,21 @@ export default async function InventoryHealthPage() {
           ))}
         </div>
 
+        {/* Results Info */}
+        {!error && total > 0 && (
+          <p className="text-sm text-gray-600 mb-4 mt-6">
+            Se encontraron <span className="font-semibold">{total}</span> categoría(s)
+          </p>
+        )}
+
         {inventory.length === 0 && !error && (
           <div className="bg-white shadow-md rounded-lg p-8 text-center text-gray-500">
             No hay datos de inventario
           </div>
         )}
+
+        {/* Pagination */}
+        {totalPages > 1 && <Pagination currentPage={page} totalPages={totalPages} />}
       </div>
     </div>
   );

@@ -1,19 +1,21 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { query } from '@/lib/db';
-import { OverdueLoan } from '@/types';
+import { getOverdueLoans } from '@/lib/reports';
+import { SearchInput } from '@/components/SearchInput';
+import { MinDaysFilter } from '@/components/MinDaysFilter';
+import { Pagination } from '@/components/Pagination';
 
-export default async function OverdueLoansPage() {
-  let loans: OverdueLoan[] = [];
-  let error = null;
+// Data fetching is handled by `getOverdueLoans` in `src/lib/reports.ts`.
 
-  try {
-    const result = await query('SELECT * FROM vw_overdue_loans');
-    loans = result.rows;
-  } catch (err) {
-    error = 'Error al cargar los datos';
-    console.error(err);
-  }
+interface Props {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function OverdueLoansPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const result = await getOverdueLoans(params);
+  const { data: loans, total, page, totalPages } = result;
+  const error = total === -1 ? 'Error al cargar datos' : null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -32,10 +34,23 @@ export default async function OverdueLoansPage() {
           </p>
         </div>
 
+        {/* Search */}
+        <SearchInput placeholder="Buscar por socio, libro o código..." paramName="search" />
+
+        {/* Filters */}
+        <MinDaysFilter />
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}
           </div>
+        )}
+
+        {/* Results Info */}
+        {!error && total > 0 && (
+          <p className="text-sm text-gray-600 mb-4">
+            Se encontraron <span className="font-semibold">{total}</span> préstamo(s) vencido(s)
+          </p>
         )}
 
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -96,6 +111,9 @@ export default async function OverdueLoansPage() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && <Pagination currentPage={page} totalPages={totalPages} />}
       </div>
     </div>
   );

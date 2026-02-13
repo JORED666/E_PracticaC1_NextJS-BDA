@@ -1,19 +1,20 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { query } from '@/lib/db';
-import { MostBorrowedBook } from '@/types';
+import { getMostBorrowedBooks } from '@/lib/reports';
+import { SearchInput } from '@/components/SearchInput';
+import { Pagination } from '@/components/Pagination';
 
-export default async function MostBorrowedPage() {
-  let books: MostBorrowedBook[] = [];
-  let error = null;
+// Data fetching is handled by `getMostBorrowedBooks` in `src/lib/reports.ts`.
 
-  try {
-    const result = await query('SELECT * FROM vw_most_borrowed_books LIMIT 20');
-    books = result.rows;
-  } catch (err) {
-    error = 'Error al cargar los datos';
-    console.error(err);
-  }
+interface Props {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function MostBorrowedPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const result = await getMostBorrowedBooks(params);
+  const { data: books, total, page, totalPages } = result;
+  const error = total === -1 ? 'Error al cargar datos' : null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -33,11 +34,21 @@ export default async function MostBorrowedPage() {
           </p>
         </div>
 
+        {/* Search */}
+        <SearchInput placeholder="Buscar por título o autor..." paramName="search" />
+
         {/* Error */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}
           </div>
+        )}
+
+        {/* Results Info */}
+        {!error && total > 0 && (
+          <p className="text-sm text-gray-600 mb-4">
+            Se encontraron <span className="font-semibold">{total}</span> libro(s)
+          </p>
         )}
 
         {/* Tabla */}
@@ -103,6 +114,9 @@ export default async function MostBorrowedPage() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && <Pagination currentPage={page} totalPages={totalPages} />}
       </div>
     </div>
   );
